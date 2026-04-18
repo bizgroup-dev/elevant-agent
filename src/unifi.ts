@@ -216,15 +216,39 @@ export class UniFiClient {
 
   async getAccessDevices(): Promise<DeviceSnapshot[]> {
     try {
-      // Try v2 API first, fall back to v1
-      let devices: any[];
+      // Try multiple API paths — response format varies by firmware version
+      let raw: any;
       try {
-        devices = await this.request<any[]>('/proxy/access/api/v2/devices');
+        raw = await this.request<any>('/proxy/access/api/v2/devices');
       } catch {
-        devices = await this.request<any[]>('/proxy/access/api/devices');
+        try {
+          raw = await this.request<any>('/proxy/access/api/devices');
+        } catch {
+          raw = await this.request<any>('/proxy/access/ulp-go/api/v2/devices');
+        }
       }
 
-      return (devices || []).map((d: any) => ({
+      // Normalize response — API may return array directly, or wrapped in { data: [...] } or other shapes
+      let devices: any[] = [];
+      if (Array.isArray(raw)) {
+        devices = raw;
+      } else if (raw?.data && Array.isArray(raw.data)) {
+        devices = raw.data;
+      } else if (raw && typeof raw === 'object') {
+        // Log the shape so we can see what the API returns
+        const keys = Object.keys(raw);
+        console.log(`[unifi] access API response keys: ${keys.join(', ')}`);
+        // Try to find an array in the response
+        for (const key of keys) {
+          if (Array.isArray(raw[key])) {
+            devices = raw[key];
+            console.log(`[unifi] found access devices in key: ${key} (${devices.length} items)`);
+            break;
+          }
+        }
+      }
+
+      return devices.map((d: any) => ({
         id: d.id || d.unique_id,
         name: d.name || d.alias || 'Unknown Door',
         model: d.type || d.device_type || 'Unknown',

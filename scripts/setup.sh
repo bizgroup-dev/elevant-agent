@@ -28,7 +28,7 @@ echo ""
 echo "[1/7] System updates..."
 apt-get update -qq
 apt-get upgrade -y -qq
-apt-get install -y -qq curl unattended-upgrades ufw
+apt-get install -y -qq curl unzip unattended-upgrades ufw
 
 # ── 2. Firewall ──
 echo "[2/7] Configuring firewall..."
@@ -60,9 +60,11 @@ fi
 
 # ── 5. Deploy agent code ──
 echo "[5/7] Deploying agent..."
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p /opt/elevant-agent
-# Copy current directory to /opt/elevant-agent
-cp -r src package.json tsconfig.json /opt/elevant-agent/
+# Copy agent code from source directory
+cp -r "$SCRIPT_DIR/src" "$SCRIPT_DIR/package.json" "$SCRIPT_DIR/tsconfig.json" /opt/elevant-agent/
+cp -r "$SCRIPT_DIR/config" "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/systemd" /opt/elevant-agent/
 # Install dependencies (if any in future)
 cd /opt/elevant-agent && bun install --production 2>/dev/null || true
 chown -R elevant-agent:elevant-agent /opt/elevant-agent
@@ -72,7 +74,7 @@ echo "  Agent deployed to /opt/elevant-agent"
 echo "[6/7] Setting up configuration..."
 mkdir -p /etc/elevant-agent
 if [ ! -f /etc/elevant-agent/config.json ]; then
-  cp config/config.json /etc/elevant-agent/config.json
+  cp "$SCRIPT_DIR/config/config.json" /etc/elevant-agent/config.json
   chmod 600 /etc/elevant-agent/config.json
   chown elevant-agent:elevant-agent /etc/elevant-agent/config.json
   echo "  Config template copied to /etc/elevant-agent/config.json"
@@ -83,7 +85,7 @@ fi
 
 # ── 7. Systemd service ──
 echo "[7/7] Installing systemd service..."
-cp systemd/elevant-agent.service /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/elevant-agent.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable elevant-agent
 echo "  Service installed and enabled (auto-start on boot)"
