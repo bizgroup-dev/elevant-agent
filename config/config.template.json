@@ -1,0 +1,27 @@
+{
+  "site": {
+    "id": "cedar-springs",
+    "name": "VanBelkum Cedar Springs"
+  },
+  "unifi": {
+    "host": "172.21.1.1",
+    "username": "elevant-monitor",
+    "password": "",
+    "verifySsl": false
+  },
+  "elevant": {
+    "url": "https://elevant.vanbelkum.com",
+    "apiKey": ""
+  },
+  "polling": {
+    "intervalSeconds": 60,
+    "healthIntervalSeconds": 300,
+    "retryIntervalSeconds": 30,
+    "bufferMaxMinutes": 60
+  },
+  "features": {
+    "network": true,
+    "protect": true,
+    "access": true
+  }
+}

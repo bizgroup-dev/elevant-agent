@@ -1,0 +1,23 @@
+[Unit]
+Description=Elevant Monitoring Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=elevant-agent
+WorkingDirectory=/opt/elevant-agent
+ExecStart=/usr/local/bin/bun run src/agent.ts
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/elevant-agent /etc/elevant-agent
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

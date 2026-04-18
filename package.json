@@ -1,0 +1,10 @@
+{
+  "name": "elevant-agent",
+  "version": "1.0.0",
+  "description": "Elevant on-site monitoring agent — polls UniFi OS and pushes state to Elevant",
+  "scripts": {
+    "start": "bun run src/agent.ts",
+    "dev": "bun --watch run src/agent.ts"
+  },
+  "dependencies": {}
+}
