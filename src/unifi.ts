@@ -216,48 +216,31 @@ export class UniFiClient {
 
   async getAccessDevices(): Promise<DeviceSnapshot[]> {
     try {
-      // Try multiple API paths — response format varies by firmware version
-      let raw: any;
-      try {
-        raw = await this.request<any>('/proxy/access/api/v2/devices');
-      } catch {
-        try {
-          raw = await this.request<any>('/proxy/access/api/devices');
-        } catch {
-          raw = await this.request<any>('/proxy/access/ulp-go/api/v2/devices');
-        }
-      }
+      // Access API v2 returns { code: 1, codeS: "SUCCESS", data: [...] }
+      const raw = await this.request<any>('/proxy/access/api/v2/devices');
 
-      // Normalize response — API may return array directly, or wrapped in { data: [...] } or other shapes
+      // Extract device array from response envelope
       let devices: any[] = [];
       if (Array.isArray(raw)) {
         devices = raw;
       } else if (raw?.data && Array.isArray(raw.data)) {
         devices = raw.data;
-      } else if (raw && typeof raw === 'object') {
-        // Log the shape so we can see what the API returns
-        const keys = Object.keys(raw);
-        console.log(`[unifi] access API response keys: ${keys.join(', ')}`);
-        // Try to find an array in the response
-        for (const key of keys) {
-          if (Array.isArray(raw[key])) {
-            devices = raw[key];
-            console.log(`[unifi] found access devices in key: ${key} (${devices.length} items)`);
-            break;
-          }
-        }
       }
 
       return devices.map((d: any) => ({
-        id: d.id || d.unique_id,
-        name: d.name || d.alias || 'Unknown Door',
-        model: d.type || d.device_type || 'Unknown',
+        id: d.unique_id || d.id,
+        name: d.alias || d.name || 'Unknown Door',
+        model: d.device_type || d.type || 'Unknown',
         type: 'door_controller',
-        state: d.connected || d.is_online ? 'online' as const : 'offline' as const,
-        firmware: d.firmware || d.firmware_version,
+        state: (d.is_online || d.is_connected) ? 'online' as const : 'offline' as const,
+        ip: d.ip,
+        firmware: d.firmware || d.version,
         extra: {
-          batteryPercent: d.battery_level ?? d.battery_status?.percentage,
-          lockState: d.lock_status || d.lock_state,
+          mac: d.mac,
+          isAdopted: d.is_adopted,
+          location: d.location?.name,
+          startTime: d.start_time ? new Date(d.start_time * 1000).toISOString() : null,
+          lastSeen: d.last_seen ? new Date(d.last_seen * 1000).toISOString() : null,
         },
       }));
     } catch (err) {
