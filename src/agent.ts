@@ -105,6 +105,24 @@ async function main() {
         console.log(`[poll] access: ${onlineDoors}/${devices.length} devices online`);
       }
 
+      // Watched clients (Play devices, IoT, Connect devices)
+      if (config.watchedClients && config.watchedClients.length > 0) {
+        const watched = await unifi.getWatchedClients(config.watchedClients);
+        const onlineWatched = watched.filter(w => w.state === 'online').length;
+
+        // Add to network devices (they're network clients, just specifically tracked)
+        if (!snapshot.network) {
+          snapshot.network = { devices: [], health: { totalDevices: 0, onlineDevices: 0, totalClients: 0 } };
+        }
+        snapshot.network.devices.push(...watched);
+
+        console.log(`[poll] watched: ${onlineWatched}/${watched.length} online`);
+        if (onlineWatched < watched.length) {
+          const offline = watched.filter(w => w.state === 'offline').map(w => w.name);
+          console.log(`[poll] ⚠️  watched OFFLINE: ${offline.join(', ')}`);
+        }
+      }
+
       // Finalize timing
       snapshot.pollDurationMs = Date.now() - pollStart;
       lastPollDurationMs = snapshot.pollDurationMs;

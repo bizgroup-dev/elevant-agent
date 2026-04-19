@@ -23,5 +23,10 @@
     "network": true,
     "protect": true,
     "access": true
-  }
+  },
+  "watchedClients": [
+    { "mac": "28:70:4e:73:5e:60", "name": "Play - Shop", "type": "play" },
+    { "mac": "9c:05:d6:d9:b5:0f", "name": "Play - Office", "type": "play" },
+    { "mac": "28:70:4e:73:5d:e8", "name": "Play - Break Room", "type": "play" }
+  ]
 }

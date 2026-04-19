@@ -228,6 +228,43 @@ export class UniFiClient {
     }
   }
 
+  // ── Watched Clients (Play devices, IoT, etc.) ──
+
+  async getWatchedClients(watchList: Array<{ mac: string; name: string; type: string }>): Promise<DeviceSnapshot[]> {
+    if (!watchList || watchList.length === 0) return [];
+
+    try {
+      const data = await this.request<{ data: any[] }>('/proxy/network/api/s/default/stat/sta');
+      const clients = data.data || [];
+
+      // Build MAC lookup set from current clients
+      const onlineMacs = new Set(clients.map((c: any) => c.mac?.toLowerCase()));
+
+      return watchList.map((w) => {
+        const isOnline = onlineMacs.has(w.mac.toLowerCase());
+        // Find the client entry for extra data
+        const client = clients.find((c: any) => c.mac?.toLowerCase() === w.mac.toLowerCase());
+
+        return {
+          mac: w.mac,
+          name: w.name,
+          model: w.type,
+          type: w.type,
+          state: isOnline ? 'online' as const : 'offline' as const,
+          ip: client?.ip,
+          extra: {
+            hostname: client?.hostname,
+            lastSeen: client?.last_seen ? new Date(client.last_seen * 1000).toISOString() : null,
+            uplink: client?.uplink_mac,
+          },
+        };
+      });
+    } catch (err) {
+      console.error('[unifi] watched clients poll failed:', err);
+      return [];
+    }
+  }
+
   // ── Protect Sensors ──
 
   async getProtectSensors(): Promise<DeviceSnapshot[]> {

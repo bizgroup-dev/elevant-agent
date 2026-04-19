@@ -29,6 +29,11 @@ export interface AgentConfig {
     protect: boolean;
     access: boolean;
   };
+  watchedClients?: Array<{
+    mac: string;
+    name: string;
+    type: string;  // 'play', 'connect', 'iot', etc.
+  }>;
 }
 
 // ── UniFi API Response Types ──
