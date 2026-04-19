@@ -169,20 +169,30 @@ export class UniFiClient {
     try {
       const cameras = await this.request<any[]>('/proxy/protect/api/cameras');
 
-      return (cameras || []).map((c: any) => ({
-        id: c.id,
-        name: c.name || 'Unknown Camera',
-        model: c.model || c.type || 'Unknown',
-        type: 'camera',
-        state: c.state === 'CONNECTED' ? 'online' as const : 'offline' as const,
-        ip: c.host,
-        firmware: c.firmwareVersion,
-        uptime: c.upSince ? Math.floor((Date.now() - c.upSince) / 1000) : undefined,
-        extra: {
-          isRecording: c.isRecording || false,
-          lastMotion: c.lastMotion ? new Date(c.lastMotion).toISOString() : null,
-        },
-      }));
+      return (cameras || [])
+        // Filter out stale unnamed cameras (decommissioned third-party devices)
+        .filter((c: any) => {
+          if (!c.name && c.state !== 'CONNECTED') {
+            console.log(`[unifi] skipping stale unnamed camera: ${c.model || 'unknown'} @ ${c.host || 'no IP'}`);
+            return false;
+          }
+          return true;
+        })
+        .map((c: any) => ({
+          id: c.id,
+          name: c.name || `${c.model || 'Camera'} (${c.host || 'unknown'})`,
+          model: c.model || c.type || 'Unknown',
+          type: 'camera',
+          state: c.state === 'CONNECTED' ? 'online' as const : 'offline' as const,
+          ip: c.host,
+          firmware: c.firmwareVersion,
+          uptime: c.upSince ? Math.floor((Date.now() - c.upSince) / 1000) : undefined,
+          extra: {
+            isRecording: c.isRecording || false,
+            lastMotion: c.lastMotion ? new Date(c.lastMotion).toISOString() : null,
+            isManaged: c.isManaged,
+          },
+        }));
     } catch (err) {
       console.error('[unifi] protect cameras poll failed:', err);
       return [];
@@ -194,17 +204,23 @@ export class UniFiClient {
       const nvr = await this.request<any>('/proxy/protect/api/nvr');
       if (!nvr) return null;
 
-      const storage = nvr.storageInfo || {};
-      const totalBytes = storage.totalSize || 0;
-      const usedBytes = storage.usedSize || storage.totalSpaceUsed || 0;
+      // Storage data is in nvr.storageStats.recordingSpace (not storageInfo)
+      const stats = nvr.storageStats || {};
+      const space = stats.recordingSpace || {};
+      const totalBytes = space.total || 0;
+      const usedBytes = space.used || 0;
+      const availableBytes = space.available || 0;
+      const utilization = stats.utilization || 0;
 
       return {
         storageUsedBytes: usedBytes,
         storageTotalBytes: totalBytes,
-        storagePercent: totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0,
-        recordingRetentionDays: nvr.recordingRetentionDurationMs
-          ? Math.round(nvr.recordingRetentionDurationMs / 86400000)
-          : 0,
+        storageAvailableBytes: availableBytes,
+        storagePercent: Math.round(utilization),
+        recordingRateBytesPerSec: stats.recordingRate || 0,
+        retentionCapacitySeconds: stats.capacity || 0,
+        remainingCapacitySeconds: stats.remainingCapacity || 0,
+        distribution: stats.recordingDistribution || null,
       };
     } catch (err) {
       console.error('[unifi] protect NVR poll failed:', err);
