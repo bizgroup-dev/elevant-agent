@@ -228,6 +228,63 @@ export class UniFiClient {
     }
   }
 
+  // ── Protect Sensors ──
+
+  async getProtectSensors(): Promise<DeviceSnapshot[]> {
+    try {
+      const sensors = await this.request<any[]>('/proxy/protect/api/sensors');
+
+      return (sensors || []).map((s: any) => ({
+        mac: s.mac,
+        name: s.name || `Sensor (${s.type || 'unknown'})`,
+        model: s.type || 'Sensor',
+        type: 'sensor',
+        state: s.isConnected || s.connectedSince ? 'online' as const : 'offline' as const,
+        firmware: s.firmwareVersion,
+        uptime: s.uptime,
+        extra: {
+          batteryStatus: s.batteryStatus,
+          mountType: s.mountType,
+          openStatusChangedAt: s.openStatusChangedAt,
+          isOpened: s.isOpened,
+          leakDetectedAt: s.leakDetectedAt,
+          tamperingDetectedAt: s.tamperingDetectedAt,
+          alarmTriggeredAt: s.alarmTriggeredAt,
+        },
+      }));
+    } catch (err) {
+      console.error('[unifi] protect sensors poll failed:', err);
+      return [];
+    }
+  }
+
+  // ── Protect Lights ──
+
+  async getProtectLights(): Promise<DeviceSnapshot[]> {
+    try {
+      const lights = await this.request<any[]>('/proxy/protect/api/lights');
+
+      return (lights || []).map((l: any) => ({
+        mac: l.mac,
+        name: l.name || `Light (${l.type || 'unknown'})`,
+        model: l.type || 'Light',
+        type: 'light',
+        state: l.isConnected || l.connectedSince ? 'online' as const : 'offline' as const,
+        ip: l.host,
+        firmware: l.firmwareVersion,
+        uptime: l.uptime,
+        extra: {
+          isPirMotionDetected: l.isPirMotionDetected,
+          lightOnSettings: l.lightOnSettings,
+          lightDeviceSettings: l.lightDeviceSettings,
+        },
+      }));
+    } catch (err) {
+      console.error('[unifi] protect lights poll failed:', err);
+      return [];
+    }
+  }
+
   // ── Access ──
 
   async getAccessDevices(): Promise<DeviceSnapshot[]> {

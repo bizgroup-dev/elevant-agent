@@ -73,18 +73,26 @@ async function main() {
         console.log(`[poll] network: ${onlineCount}/${devices.length} devices online, ${health.totalClients} clients`);
       }
 
-      // Protect
+      // Protect (cameras + sensors + lights)
       if (config.features.protect) {
         const cameras = await unifi.getProtectCameras();
+        const sensors = await unifi.getProtectSensors();
+        const lights = await unifi.getProtectLights();
         const nvr = await unifi.getProtectNvr();
         const onlineCams = cameras.filter(c => c.state === 'online').length;
+        const onlineSensors = sensors.filter(s => s.state === 'online').length;
+        const onlineLights = lights.filter(l => l.state === 'online').length;
 
         snapshot.protect = {
-          cameras,
+          cameras: [...cameras, ...sensors, ...lights],
           nvr: nvr || undefined,
         };
 
-        console.log(`[poll] protect: ${onlineCams}/${cameras.length} cameras online${nvr ? `, storage ${nvr.storagePercent}%` : ''}`);
+        const retentionDays = nvr?.retentionCapacitySeconds ? Math.round(nvr.retentionCapacitySeconds / 86400) : null;
+        const parts = [`${onlineCams}/${cameras.length} cameras`];
+        if (sensors.length > 0) parts.push(`${onlineSensors}/${sensors.length} sensors`);
+        if (lights.length > 0) parts.push(`${onlineLights}/${lights.length} lights`);
+        console.log(`[poll] protect: ${parts.join(', ')}${nvr ? `, storage ${nvr.storagePercent}%${retentionDays ? ` ~${retentionDays}d retention` : ''}` : ''}`);
       }
 
       // Access
