@@ -22,11 +22,40 @@
   "features": {
     "network": true,
     "protect": true,
-    "access": true
+    "access": true,
+    "snmp": false,
+    "syslog": false,
+    "dwSpectrum": false,
+    "onvifCameras": false
   },
   "watchedClients": [
     { "mac": "28:70:4e:73:5e:60", "name": "Play - Shop", "type": "play" },
     { "mac": "9c:05:d6:d9:b5:0f", "name": "Play - Office", "type": "play" },
     { "mac": "28:70:4e:73:5d:e8", "name": "Play - Break Room", "type": "play" }
-  ]
+  ],
+  "snmp": {
+    "targets": [
+      {
+        "host": "192.168.1.1",
+        "community": "public",
+        "version": "2c",
+        "name": "Fortinet 60F",
+        "type": "firewall"
+      }
+    ],
+    "pollIntervalSeconds": 300
+  },
+  "dwSpectrum": {
+    "host": "192.168.1.100",
+    "port": 7001,
+    "username": "admin",
+    "password": "",
+    "pollIntervalSeconds": 300
+  },
+  "onvifCameras": {
+    "cameras": [
+      { "host": "192.168.1.50", "name": "Front Door Camera", "httpPort": 80, "rtspPort": 554 }
+    ],
+    "pollIntervalSeconds": 300
+  }
 }

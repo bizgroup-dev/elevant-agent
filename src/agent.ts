@@ -11,10 +11,13 @@
 
 import { loadConfig } from './config';
 import { UniFiClient } from './unifi';
+import { SnmpPoller } from './snmp';
+import { DwSpectrumClient } from './dw-spectrum';
+import { OnvifProbe } from './onvif-probe';
 import { Pusher } from './pusher';
 import type { StateSnapshot, HealthReport } from './types';
 
-const AGENT_VERSION = '1.0.0';
+const AGENT_VERSION = '2.0.0';
 
 async function main() {
   console.log(`[agent] Elevant Monitoring Agent v${AGENT_VERSION}`);
@@ -22,6 +25,9 @@ async function main() {
 
   const config = await loadConfig();
   const unifi = new UniFiClient(config);
+  const snmpPoller = config.features.snmp ? new SnmpPoller(config) : null;
+  const dwSpectrum = config.features.dwSpectrum && config.dwSpectrum ? new DwSpectrumClient(config) : null;
+  const onvifProbe = config.features.onvifCameras ? new OnvifProbe(config) : null;
   const pusher = new Pusher(config);
 
   const startedAt = Date.now();
@@ -36,7 +42,8 @@ async function main() {
   console.log(`[agent] UDM: ${config.unifi.host}`);
   console.log(`[agent] Elevant: ${config.elevant.url}`);
   console.log(`[agent] poll interval: ${config.polling.intervalSeconds}s`);
-  console.log(`[agent] features: network=${config.features.network} protect=${config.features.protect} access=${config.features.access}`);
+  const featureList = Object.entries(config.features).filter(([, v]) => v).map(([k]) => k).join(', ');
+  console.log(`[agent] features: ${featureList}`);
 
   // ── Poll cycle ──
   async function poll(): Promise<void> {
@@ -120,6 +127,44 @@ async function main() {
         if (onlineWatched < watched.length) {
           const offline = watched.filter(w => w.state === 'offline').map(w => w.name);
           console.log(`[poll] ⚠️  watched OFFLINE: ${offline.join(', ')}`);
+        }
+      }
+
+      // SNMP devices (Fortinet, legacy switches)
+      if (snmpPoller) {
+        const snmpDevices = await snmpPoller.poll();
+        if (snmpDevices.length > 0) {
+          if (!snapshot.network) {
+            snapshot.network = { devices: [], health: { totalDevices: 0, onlineDevices: 0, totalClients: 0 } };
+          }
+          snapshot.network.devices.push(...snmpDevices);
+          console.log(`[poll] snmp: ${snmpDevices.filter(d => d.state === 'online').length}/${snmpDevices.length} devices online`);
+        }
+      }
+
+      // DW Spectrum (cameras + NVR)
+      if (dwSpectrum) {
+        const dwDevices = await dwSpectrum.poll();
+        if (dwDevices.length > 0) {
+          if (!snapshot.protect) {
+            snapshot.protect = { cameras: [] };
+          }
+          snapshot.protect.cameras.push(...dwDevices);
+          const onlineDw = dwDevices.filter(d => d.state === 'online').length;
+          console.log(`[poll] dw-spectrum: ${onlineDw}/${dwDevices.length} devices online`);
+        }
+      }
+
+      // ONVIF cameras (standalone IP cameras)
+      if (onvifProbe) {
+        const onvifDevices = await onvifProbe.poll();
+        if (onvifDevices.length > 0) {
+          if (!snapshot.protect) {
+            snapshot.protect = { cameras: [] };
+          }
+          snapshot.protect.cameras.push(...onvifDevices);
+          const onlineOnvif = onvifDevices.filter(d => d.state === 'online').length;
+          console.log(`[poll] onvif: ${onlineOnvif}/${onvifDevices.length} cameras online`);
         }
       }
 

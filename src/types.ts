@@ -28,6 +28,45 @@ export interface AgentConfig {
     network: boolean;
     protect: boolean;
     access: boolean;
+    snmp: boolean;
+    syslog: boolean;
+    dwSpectrum: boolean;
+    onvifCameras: boolean;
+  };
+  snmp?: {
+    targets: Array<{
+      host: string;
+      community: string;
+      version: '1' | '2c';
+      name: string;
+      type: 'firewall' | 'switch' | 'router';
+    }>;
+    pollIntervalSeconds: number;
+  };
+  syslog?: {
+    port: number;
+    protocol: 'udp';
+    sources: Array<{
+      ip: string;
+      name: string;
+      type: string;
+    }>;
+  };
+  dwSpectrum?: {
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    pollIntervalSeconds: number;
+  };
+  onvifCameras?: {
+    cameras: Array<{
+      host: string;
+      name: string;
+      httpPort: number;
+      rtspPort: number;
+    }>;
+    pollIntervalSeconds: number;
   };
   watchedClients?: Array<{
     mac: string;
