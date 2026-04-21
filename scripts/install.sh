@@ -56,17 +56,7 @@ if [ -d "$INSTALL_DIR/.git" ]; then
   cd "$INSTALL_DIR" && git pull
 else
   rm -rf "$INSTALL_DIR"
-  # Private repo — needs authentication
-  echo "  The agent repo is private. You'll need GitHub credentials."
-  echo "  Use a personal access token (Settings → Developer settings → Tokens)"
-  echo ""
-  read -p "  GitHub username: " GH_USER
-  read -sp "  GitHub token: " GH_TOKEN
-  echo ""
-  git clone "https://${GH_USER}:${GH_TOKEN}@github.com/bizgroup-dev/elevant-agent.git" "$INSTALL_DIR"
-  # Store credentials for future pulls
-  cd "$INSTALL_DIR"
-  git remote set-url origin "https://${GH_USER}:${GH_TOKEN}@github.com/bizgroup-dev/elevant-agent.git"
+  git clone "$REPO" "$INSTALL_DIR"
 fi
 
 cd "$INSTALL_DIR"
