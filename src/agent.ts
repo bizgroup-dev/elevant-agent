@@ -130,14 +130,11 @@ async function main() {
         }
       }
 
-      // SNMP devices (Fortinet, legacy switches)
+      // SNMP devices (Fortinet, legacy switches, printers)
       if (snmpPoller) {
         const snmpDevices = await snmpPoller.poll();
         if (snmpDevices.length > 0) {
-          if (!snapshot.network) {
-            snapshot.network = { devices: [], health: { totalDevices: 0, onlineDevices: 0, totalClients: 0 } };
-          }
-          snapshot.network.devices.push(...snmpDevices);
+          snapshot.snmp = { devices: snmpDevices };
           console.log(`[poll] snmp: ${snmpDevices.filter(d => d.state === 'online').length}/${snmpDevices.length} devices online`);
         }
       }
@@ -146,10 +143,7 @@ async function main() {
       if (dwSpectrum) {
         const dwDevices = await dwSpectrum.poll();
         if (dwDevices.length > 0) {
-          if (!snapshot.protect) {
-            snapshot.protect = { cameras: [] };
-          }
-          snapshot.protect.cameras.push(...dwDevices);
+          snapshot.dwSpectrum = { devices: dwDevices };
           const onlineDw = dwDevices.filter(d => d.state === 'online').length;
           console.log(`[poll] dw-spectrum: ${onlineDw}/${dwDevices.length} devices online`);
         }
@@ -159,10 +153,7 @@ async function main() {
       if (onvifProbe) {
         const onvifDevices = await onvifProbe.poll();
         if (onvifDevices.length > 0) {
-          if (!snapshot.protect) {
-            snapshot.protect = { cameras: [] };
-          }
-          snapshot.protect.cameras.push(...onvifDevices);
+          snapshot.onvif = { devices: onvifDevices };
           const onlineOnvif = onvifDevices.filter(d => d.state === 'online').length;
           console.log(`[poll] onvif: ${onlineOnvif}/${onvifDevices.length} cameras online`);
         }

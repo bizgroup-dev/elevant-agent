@@ -202,6 +202,15 @@ export interface StateSnapshot {
   access: {
     devices: DeviceSnapshot[];
   } | null;
+  snmp?: {
+    devices: DeviceSnapshot[];
+  } | null;
+  dwSpectrum?: {
+    devices: DeviceSnapshot[];
+  } | null;
+  onvif?: {
+    devices: DeviceSnapshot[];
+  } | null;
 }
 
 export interface HealthReport {
