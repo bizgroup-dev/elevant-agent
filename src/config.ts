@@ -43,9 +43,10 @@ export async function loadConfig(): Promise<AgentConfig> {
   if (process.env.ELEVANT_API_KEY) config.elevant.apiKey = process.env.ELEVANT_API_KEY;
   if (process.env.SITE_ID) config.site.id = process.env.SITE_ID;
 
-  // Validate required fields
-  if (!config.unifi.host || !config.unifi.username || !config.unifi.password) {
-    console.error('[config] Missing required UniFi credentials');
+  // Validate required fields — only check UniFi creds if UniFi features are enabled
+  const needsUnifi = config.features.network || config.features.protect || config.features.access;
+  if (needsUnifi && (!config.unifi.host || !config.unifi.username || !config.unifi.password)) {
+    console.error('[config] Missing required UniFi credentials (network/protect/access is enabled)');
     process.exit(1);
   }
   if (!config.elevant.url) {
