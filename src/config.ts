@@ -41,6 +41,7 @@ export async function loadConfig(): Promise<AgentConfig> {
   if (process.env.UNIFI_PASSWORD) config.unifi.password = process.env.UNIFI_PASSWORD;
   if (process.env.ELEVANT_URL) config.elevant.url = process.env.ELEVANT_URL;
   if (process.env.ELEVANT_API_KEY) config.elevant.apiKey = process.env.ELEVANT_API_KEY;
+  if (process.env.ELEVANT_AGENT_TOKEN) config.elevant.agentToken = process.env.ELEVANT_AGENT_TOKEN;
   if (process.env.SITE_ID) config.site.id = process.env.SITE_ID;
 
   // Validate required fields — only check UniFi creds if UniFi features are enabled

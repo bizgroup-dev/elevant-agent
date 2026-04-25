@@ -16,7 +16,9 @@ export interface AgentConfig {
   };
   elevant: {
     url: string;
-    apiKey: string;
+    apiKey?: string;
+    agentToken?: string;
+    configPollIntervalSeconds?: number;
   };
   polling: {
     intervalSeconds: number;

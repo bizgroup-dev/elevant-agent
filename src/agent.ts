@@ -15,9 +15,10 @@ import { SnmpPoller } from './snmp';
 import { DwSpectrumClient } from './dw-spectrum';
 import { OnvifProbe } from './onvif-probe';
 import { Pusher } from './pusher';
+import { startConfigPoll } from './config-poll';
 import type { StateSnapshot, HealthReport } from './types';
 
-const AGENT_VERSION = '2.0.0';
+const AGENT_VERSION = '2.1.0';
 
 async function main() {
   console.log(`[agent] Elevant Monitoring Agent v${AGENT_VERSION}`);
@@ -220,6 +221,9 @@ async function main() {
 
   // ── Schedule health reports ──
   setInterval(reportHealth, config.polling.healthIntervalSeconds * 1000);
+
+  // ── Live config pull from Elevant ──
+  startConfigPoll(config, AGENT_VERSION);
 
   console.log(`[agent] running. Ctrl+C to stop.`);
 }
