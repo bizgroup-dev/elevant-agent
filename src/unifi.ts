@@ -177,41 +177,60 @@ export class UniFiClient {
         }
       }
 
-      // Merge with V2 internet endpoint — exposes ALL configured WANs
-      // (including down ones that /stat/health suppresses, and additional
-      // active circuits beyond the primary). The UniFi UI reads this for
-      // its Internet panel.
+      // Merge with the gateway device's embedded WAN info — exposes ALL
+      // configured WANs (including down ones /stat/health suppresses, and
+      // additional active circuits beyond the primary). /stat/device is
+      // rock-solid across UniFi versions; the UDM/UCG/USG record has
+      // wan1 / wan2 substructures with port state, ISP, IP, etc.
       try {
-        const v2: any = await this.request<any>('/proxy/network/v2/api/site/default/internet');
-        const circuits = Array.isArray(v2) ? v2 : (v2?.data || []);
-        for (const c of circuits) {
-          const iface = c.interface || c.wan || c.wan_name; // 'wan' / 'wan2'
-          if (!iface) continue;
-          let state: 'online' | 'degraded' | 'offline' | 'unknown' = 'unknown';
-          if (typeof c.online === 'boolean') state = c.online ? 'online' : 'offline';
-          else if (c.status === 'ok' || c.status === 'up') state = 'online';
-          else if (c.status === 'warning' || c.status === 'degraded') state = 'degraded';
-          else if (c.status) state = 'offline';
+        const devs = await this.request<{ data: any[] }>('/proxy/network/api/s/default/stat/device');
+        const gw = (devs.data || []).find((d: any) =>
+          d.type === 'ugw' || d.type === 'udm' || d.type === 'uxg' ||
+          /UDM|UCG|USG|UXG/i.test(d.model || '')
+        );
+        if (gw) {
+          // UDM uses 'wan1'/'wan2'; some firmwares use 'wan' for primary.
+          for (const key of ['wan', 'wan1', 'wan2']) {
+            const w = gw[key];
+            if (!w || typeof w !== 'object') continue;
+            // Normalize: 'wan1' → 'wan' (treat them as the same primary)
+            const subsystem = key === 'wan1' ? 'wan' : key;
 
-          const existing = wansByInterface.get(iface);
-          if (existing) {
-            // Enrich existing entry with V2 fields without overwriting good data
-            existing.ispName = existing.ispName || c.isp || c.isp_name || c.name;
-            existing.wanIp = existing.wanIp || c.ipv4 || c.ip || c.wan_ip;
-          } else {
-            // /stat/health didn't surface this WAN — V2 has it; record it
-            wansByInterface.set(iface, {
-              subsystem: iface,
-              state,
-              ispName: c.isp || c.isp_name || c.name,
-              wanIp: c.ipv4 || c.ip || c.wan_ip,
-              gatewayMac: c.gw_mac,
-              uptimeSeconds: c.uptime,
-            });
+            let state: 'online' | 'degraded' | 'offline' | 'unknown' = 'unknown';
+            if (typeof w.up === 'boolean') state = w.up ? 'online' : 'offline';
+            else if (w.enable === false) state = 'offline';
+
+            const existing = wansByInterface.get(subsystem);
+            if (existing) {
+              // Enrich existing entry without overwriting good /stat/health data
+              existing.ispName = existing.ispName || w.isp_name || w.name;
+              existing.ispOrg = existing.ispOrg || w.isp_organization;
+              existing.wanIp = existing.wanIp || w.ip;
+              existing.gatewayMac = existing.gatewayMac || w.gw_mac || w.mac;
+              existing.latencyMs = existing.latencyMs ?? w.latency;
+              existing.uptimeSeconds = existing.uptimeSeconds ?? w.uptime;
+              existing.xputUpKbps = existing.xputUpKbps ?? w.xput_up;
+              existing.xputDownKbps = existing.xputDownKbps ?? w.xput_down;
+              // Promote state if /stat/health left it 'unknown' but gateway knows
+              if (existing.state === 'unknown' && state !== 'unknown') existing.state = state;
+            } else {
+              wansByInterface.set(subsystem, {
+                subsystem,
+                state,
+                ispName: w.isp_name || w.name,
+                ispOrg: w.isp_organization,
+                wanIp: w.ip,
+                gatewayMac: w.gw_mac || w.mac,
+                latencyMs: w.latency,
+                uptimeSeconds: w.uptime,
+                xputUpKbps: w.xput_up,
+                xputDownKbps: w.xput_down,
+              });
+            }
           }
         }
       } catch (err) {
-        console.warn('[unifi] v2 internet endpoint unavailable (older firmware?):', err instanceof Error ? err.message : err);
+        console.warn('[unifi] gateway device probe failed:', err instanceof Error ? err.message : err);
       }
 
       const wans = Array.from(wansByInterface.values());
