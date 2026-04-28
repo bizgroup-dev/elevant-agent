@@ -200,10 +200,15 @@ export class UniFiClient {
             if (typeof w.up === 'boolean') state = w.up ? 'online' : 'offline';
             else if (w.enable === false) state = 'offline';
 
+            // Filter out interface-name fallbacks like "eth7" / "eth8" — those
+            // are physical port names, not ISP friendly names. Only use w.name
+            // if it doesn't look like an interface identifier.
+            const candidateName = w.isp_name || (w.name && !/^eth\d+$/i.test(w.name) ? w.name : undefined);
+
             const existing = wansByInterface.get(subsystem);
             if (existing) {
               // Enrich existing entry without overwriting good /stat/health data
-              existing.ispName = existing.ispName || w.isp_name || w.name;
+              existing.ispName = existing.ispName || candidateName;
               existing.ispOrg = existing.ispOrg || w.isp_organization;
               existing.wanIp = existing.wanIp || w.ip;
               existing.gatewayMac = existing.gatewayMac || w.gw_mac || w.mac;
@@ -217,7 +222,7 @@ export class UniFiClient {
               wansByInterface.set(subsystem, {
                 subsystem,
                 state,
-                ispName: w.isp_name || w.name,
+                ispName: candidateName,
                 ispOrg: w.isp_organization,
                 wanIp: w.ip,
                 gatewayMac: w.gw_mac || w.mac,
