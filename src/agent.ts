@@ -18,7 +18,7 @@ import { Pusher } from './pusher';
 import { startConfigPoll } from './config-poll';
 import type { StateSnapshot, HealthReport } from './types';
 
-const AGENT_VERSION = '2.2.0';
+const AGENT_VERSION = '2.2.1';
 
 async function main() {
   console.log(`[agent] Elevant Monitoring Agent v${AGENT_VERSION}`);

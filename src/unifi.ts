@@ -142,25 +142,21 @@ export class UniFiClient {
 
       let totalClients = 0;
       let gateway: any = null;
-      const wans: import('./types.ts').WanSnapshot[] = [];
+      const wansByInterface = new Map<string, import('./types.ts').WanSnapshot>();
 
       for (const s of subsystems) {
         if (s.subsystem === 'wlan' || s.subsystem === 'lan') {
           totalClients += s.num_user || 0;
         }
         if (s.subsystem === 'wan' || s.subsystem === 'wan2') {
-          // Map UniFi `status` to our coarse state values:
-          //   'ok'       → online
-          //   'warning'  → degraded
-          //   'unknown'  → unknown
-          //   anything else (incl. 'error') → offline
+          // Map UniFi `status` to our coarse state values
           let state: 'online' | 'degraded' | 'offline' | 'unknown';
           if (s.status === 'ok') state = 'online';
           else if (s.status === 'warning') state = 'degraded';
           else if (s.status === 'unknown' || s.status == null) state = 'unknown';
           else state = 'offline';
 
-          wans.push({
+          wansByInterface.set(s.subsystem, {
             subsystem: s.subsystem,
             state,
             ispName: s.isp_name,
@@ -175,16 +171,52 @@ export class UniFiClient {
             numDisconnected: s.num_disconnected,
           });
 
-          // Backwards-compat: keep gateway populated from primary 'wan'
           if (s.subsystem === 'wan' && !gateway) {
-            gateway = {
-              state,
-              wanIp: s.wan_ip,
-              wanLatency: s.latency,
-            };
+            gateway = { state, wanIp: s.wan_ip, wanLatency: s.latency };
           }
         }
       }
+
+      // Merge with V2 internet endpoint — exposes ALL configured WANs
+      // (including down ones that /stat/health suppresses, and additional
+      // active circuits beyond the primary). The UniFi UI reads this for
+      // its Internet panel.
+      try {
+        const v2: any = await this.request<any>('/proxy/network/v2/api/site/default/internet');
+        const circuits = Array.isArray(v2) ? v2 : (v2?.data || []);
+        for (const c of circuits) {
+          const iface = c.interface || c.wan || c.wan_name; // 'wan' / 'wan2'
+          if (!iface) continue;
+          let state: 'online' | 'degraded' | 'offline' | 'unknown' = 'unknown';
+          if (typeof c.online === 'boolean') state = c.online ? 'online' : 'offline';
+          else if (c.status === 'ok' || c.status === 'up') state = 'online';
+          else if (c.status === 'warning' || c.status === 'degraded') state = 'degraded';
+          else if (c.status) state = 'offline';
+
+          const existing = wansByInterface.get(iface);
+          if (existing) {
+            // Enrich existing entry with V2 fields without overwriting good data
+            existing.ispName = existing.ispName || c.isp || c.isp_name || c.name;
+            existing.wanIp = existing.wanIp || c.ipv4 || c.ip || c.wan_ip;
+          } else {
+            // /stat/health didn't surface this WAN — V2 has it; record it
+            wansByInterface.set(iface, {
+              subsystem: iface,
+              state,
+              ispName: c.isp || c.isp_name || c.name,
+              wanIp: c.ipv4 || c.ip || c.wan_ip,
+              gatewayMac: c.gw_mac,
+              uptimeSeconds: c.uptime,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[unifi] v2 internet endpoint unavailable (older firmware?):', err instanceof Error ? err.message : err);
+      }
+
+      const wans = Array.from(wansByInterface.values());
+      // Sort so wan comes before wan2 etc.
+      wans.sort((a, b) => a.subsystem.localeCompare(b.subsystem));
 
       return { totalClients, gateway, wans: wans.length > 0 ? wans : undefined };
     } catch (err) {
