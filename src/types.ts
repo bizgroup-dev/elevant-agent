@@ -160,6 +160,21 @@ export interface UniFiAccessDevice {
 
 // ── State Snapshot ──
 
+export interface WanSnapshot {
+  subsystem: 'wan' | 'wan2' | string;
+  state: 'online' | 'degraded' | 'offline' | 'unknown';
+  ispName?: string;
+  ispOrg?: string;
+  wanIp?: string;
+  gatewayMac?: string;
+  latencyMs?: number;
+  uptimeSeconds?: number;
+  xputUpKbps?: number;
+  xputDownKbps?: number;
+  numAdopted?: number;
+  numDisconnected?: number;
+}
+
 export interface DeviceSnapshot {
   mac?: string;
   id?: string;
@@ -191,6 +206,7 @@ export interface StateSnapshot {
       wanIp?: string;
       wanLatency?: number;
     };
+    wans?: WanSnapshot[];
   } | null;
   protect: {
     cameras: DeviceSnapshot[];

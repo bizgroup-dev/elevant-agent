@@ -135,28 +135,58 @@ export class UniFiClient {
     }
   }
 
-  async getNetworkHealth(): Promise<{ totalClients: number; gateway?: any }> {
+  async getNetworkHealth(): Promise<{ totalClients: number; gateway?: any; wans?: import('./types.ts').WanSnapshot[] }> {
     try {
       const data = await this.request<{ data: any[] }>('/proxy/network/api/s/default/stat/health');
       const subsystems = data.data || [];
 
       let totalClients = 0;
       let gateway: any = null;
+      const wans: import('./types.ts').WanSnapshot[] = [];
 
       for (const s of subsystems) {
         if (s.subsystem === 'wlan' || s.subsystem === 'lan') {
           totalClients += s.num_user || 0;
         }
-        if (s.subsystem === 'wan') {
-          gateway = {
-            state: s.status === 'ok' ? 'online' : 'degraded',
+        if (s.subsystem === 'wan' || s.subsystem === 'wan2') {
+          // Map UniFi `status` to our coarse state values:
+          //   'ok'       → online
+          //   'warning'  → degraded
+          //   'unknown'  → unknown
+          //   anything else (incl. 'error') → offline
+          let state: 'online' | 'degraded' | 'offline' | 'unknown';
+          if (s.status === 'ok') state = 'online';
+          else if (s.status === 'warning') state = 'degraded';
+          else if (s.status === 'unknown' || s.status == null) state = 'unknown';
+          else state = 'offline';
+
+          wans.push({
+            subsystem: s.subsystem,
+            state,
+            ispName: s.isp_name,
+            ispOrg: s.isp_organization,
             wanIp: s.wan_ip,
-            wanLatency: s.latency,
-          };
+            gatewayMac: s.gw_mac,
+            latencyMs: s.latency,
+            uptimeSeconds: s.uptime,
+            xputUpKbps: s.xput_up,
+            xputDownKbps: s.xput_down,
+            numAdopted: s.num_adopted,
+            numDisconnected: s.num_disconnected,
+          });
+
+          // Backwards-compat: keep gateway populated from primary 'wan'
+          if (s.subsystem === 'wan' && !gateway) {
+            gateway = {
+              state,
+              wanIp: s.wan_ip,
+              wanLatency: s.latency,
+            };
+          }
         }
       }
 
-      return { totalClients, gateway };
+      return { totalClients, gateway, wans: wans.length > 0 ? wans : undefined };
     } catch (err) {
       console.error('[unifi] health poll failed:', err);
       return { totalClients: 0 };

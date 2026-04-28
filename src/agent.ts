@@ -18,7 +18,7 @@ import { Pusher } from './pusher';
 import { startConfigPoll } from './config-poll';
 import type { StateSnapshot, HealthReport } from './types';
 
-const AGENT_VERSION = '2.1.0';
+const AGENT_VERSION = '2.2.0';
 
 async function main() {
   console.log(`[agent] Elevant Monitoring Agent v${AGENT_VERSION}`);
@@ -76,7 +76,13 @@ async function main() {
             totalClients: health.totalClients,
           },
           gateway: health.gateway,
+          wans: health.wans,
         };
+
+        if (health.wans && health.wans.length > 0) {
+          const wanSummary = health.wans.map(w => `${w.subsystem}=${w.state}${w.ispName ? `(${w.ispName})` : ''}`).join(', ');
+          console.log(`[poll] wans: ${wanSummary}`);
+        }
 
         console.log(`[poll] network: ${onlineCount}/${devices.length} devices online, ${health.totalClients} clients`);
       }
